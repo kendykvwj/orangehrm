@@ -1,0 +1,9 @@
+.git
+**/node_modules
+src/vendor
+devTools/core/vendor
+web/dist
+installer/client/dist
+coverage
+**/*.log
+lib/confs/Conf.php

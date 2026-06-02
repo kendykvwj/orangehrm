@@ -1,0 +1,128 @@
+# Pipeline acadêmico - Revitalização de Sistemas Legados e Cultura DevOps (OrangeHRM)
+# Alinhado ao trabalho UNICESUMAR: foco no módulo PIM (orangehrmPimPlugin),
+# governança GitFlow e bloqueios automatizados (quality gates) no pipeline.
+#
+# Estágios (cada um bloqueia o seguinte):
+#   1. lint           -> padrão de código PHP (PHP-CS-Fixer) e cliente Vue/TS do PIM
+#   2. pim-tests      -> PHPUnit restrito à testsuite "Pim"
+#   3. docker-build   -> valida que a imagem da aplicação ainda constrói
+#
+# GitFlow: roda em main (estável), develop (integração) e feature/** (trabalho em curso).
+name: PIM Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+# Cancela execuções antigas da mesma branch/PR para economizar recurso.
+concurrency:
+  group: pim-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Gate 1 - Lint / padrão de código
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Gate 1 - Lint (PHP-CS-Fixer + cliente PIM)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar dependências PHP
+        run: php8.3 -f /usr/bin/composer install -d src
+
+      - name: Instalar dependências devTools
+        run: php8.3 -f /usr/bin/composer install -d devTools/core
+
+      - name: Verificar padrão de código PHP
+        run: php devTools/core/console.php php-cs-fix --php php8.3
+
+      - name: Falhar se PHP-CS-Fixer alterou arquivos
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Arquivos fora do padrão de código. Rode o PHP-CS-Fixer localmente."
+            git --no-pager diff
+            exit 1
+          fi
+
+      - name: Lint do cliente (Vue/TypeScript)
+        run: cd src/client && yarn install --frozen-lockfile && yarn lint
+
+  # ---------------------------------------------------------------------------
+  # Gate 2 - Testes do módulo PIM (PHPUnit)
+  # ---------------------------------------------------------------------------
+  pim-tests:
+    name: Gate 2 - PHPUnit (testsuite Pim)
+    runs-on: ubuntu-24.04
+    needs: lint
+
+    services:
+      mysql:
+        image: mariadb:10.3
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+          --tmpfs /var/lib/mysql/
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar dependências PHP
+        run: |
+          php8.3 -f /usr/bin/composer install -d src
+          php8.3 -f /usr/bin/composer install -d devTools/core
+
+      - name: Instalar OrangeHRM e banco de testes
+        run: |
+          php8.3 installer/cli_install.php
+          php8.3 devTools/core/console.php i:create-test-db -p root --dump-options="--column-statistics=0"
+
+      - name: Executar testsuite Pim
+        run: ./src/vendor/bin/phpunit --testsuite Pim -d memory_limit=1G
+
+  # ---------------------------------------------------------------------------
+  # Gate 3 - Build da imagem Docker
+  # ---------------------------------------------------------------------------
+  docker-build:
+    name: Gate 3 - Build Docker
+    runs-on: ubuntu-24.04
+    needs: pim-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir imagem da aplicação
+        run: docker build -t orangehrm-pim:ci .
+
+  # ---------------------------------------------------------------------------
+  # Resultado consolidado do pipeline (bloqueio único para branch protection)
+  # ---------------------------------------------------------------------------
+  pipeline-status:
+    name: Status do Pipeline PIM
+    runs-on: ubuntu-24.04
+    needs: [lint, pim-tests, docker-build]
+    if: always()
+    steps:
+      - name: Verificar resultado dos gates
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.pim-tests.result }}" != "success" ] || \
+             [ "${{ needs.docker-build.result }}" != "success" ]; then
+            echo "::error::Pipeline PIM bloqueado - um ou mais gates falharam."
+            exit 1
+          fi
+          echo "Pipeline PIM aprovado."
