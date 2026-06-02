@@ -1,0 +1,36 @@
+# Local run of OrangeHRM from this repo's source (fork: kendykvwj/orangehrm).
+# App: http://localhost:8080  (8080 chosen — not used by any other local compose)
+# Admin login after first boot: Admin / Ohrm@1423
+
+services:
+  db:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: orangehrm_mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - db_data:/var/lib/mysql
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      OHRM_DB_HOST: db
+      OHRM_DB_PORT: "3306"
+      OHRM_DB_NAME: orangehrm_mysql
+      OHRM_DB_ROOT_PASSWORD: root
+    ports:
+      - "8080:80"
+
+volumes:
+  db_data:
