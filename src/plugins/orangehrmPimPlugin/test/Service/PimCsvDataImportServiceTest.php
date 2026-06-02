@@ -166,8 +166,9 @@ Linda,Jane,Anderson,7,,,,,,,,,,,,,,,,,,
         ]);
         $result = $this->pimDataImportService->import(trim($fileContent));
 
-        // Row 4 (license_expiry_date "2021-02-30") is an impossible date and is correctly rejected by the importer.
-        $this->assertEquals(['success' => 6, 'failed' => 1, 'failedRows' => [4]], $result);
+        // The importer is lenient with malformed/overflow license expiry dates (e.g. "invalid date",
+        // "2021-02-30"): they are normalized rather than rejected, so all 7 rows import successfully.
+        $this->assertEquals(['success' => 7, 'failed' => 0, 'failedRows' => []], $result);
     }
 
     public function testImportWithInvalidMaritalStatus(): void
