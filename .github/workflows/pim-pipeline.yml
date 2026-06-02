@@ -33,18 +33,29 @@ jobs:
   # ---------------------------------------------------------------------------
   lint:
     name: Gate 1 - Lint (PHP-CS-Fixer + cliente PIM)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Instalar dependências PHP
-        run: php8.3 -f /usr/bin/composer install -d src
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, curl, json, mbstring, zip, dom, xml, simplexml, gd, ldap, openssl, intl
+          tools: composer:v2
 
-      - name: Instalar dependências devTools
-        run: php8.3 -f /usr/bin/composer install -d devTools/core
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Instalar dependências PHP
+        run: |
+          composer install -d src
+          composer install -d devTools/core
 
       - name: Verificar padrão de código PHP
-        run: php devTools/core/console.php php-cs-fix --php php8.3
+        run: php devTools/core/console.php php-cs-fix --php php
 
       - name: Falhar se PHP-CS-Fixer alterou arquivos
         run: |
@@ -62,7 +73,7 @@ jobs:
   # ---------------------------------------------------------------------------
   pim-tests:
     name: Gate 2 - PHPUnit (testsuite Pim)
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     needs: lint
 
     services:
@@ -82,15 +93,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, curl, json, mbstring, zip, dom, xml, simplexml, gd, ldap, openssl, intl
+          tools: composer:v2
+
       - name: Instalar dependências PHP
         run: |
-          php8.3 -f /usr/bin/composer install -d src
-          php8.3 -f /usr/bin/composer install -d devTools/core
+          composer install -d src
+          composer install -d devTools/core
 
       - name: Instalar OrangeHRM e banco de testes
         run: |
-          php8.3 installer/cli_install.php
-          php8.3 devTools/core/console.php i:create-test-db -p root --dump-options="--column-statistics=0"
+          php installer/cli_install.php
+          php devTools/core/console.php i:create-test-db -p root --dump-options="--column-statistics=0"
 
       - name: Executar testsuite Pim
         run: ./src/vendor/bin/phpunit --testsuite Pim -d memory_limit=1G
@@ -100,7 +118,7 @@ jobs:
   # ---------------------------------------------------------------------------
   docker-build:
     name: Gate 3 - Build Docker
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     needs: pim-tests
     steps:
       - uses: actions/checkout@v4
@@ -113,7 +131,7 @@ jobs:
   # ---------------------------------------------------------------------------
   pipeline-status:
     name: Status do Pipeline PIM
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     needs: [lint, pim-tests, docker-build]
     if: always()
     steps:
