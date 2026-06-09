@@ -84,7 +84,8 @@ jobs:
   pim-tests:
     name: Gate 2 - PHPUnit (testsuite Pim)
     runs-on: ubuntu-latest
-    needs: lint
+    # Sem needs: roda em paralelo com lint/docker. O bloqueio fica no
+    # job pipeline-status, que exige todos os gates verdes.
 
     services:
       mysql:
