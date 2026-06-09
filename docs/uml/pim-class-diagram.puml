@@ -1,0 +1,80 @@
+@startuml pim-class-diagram
+' Diagrama UML de classes simplificado do módulo PIM (estado atual recuperado).
+' Fonte: engenharia reversa do checkpoint 02 (Figura 1 do relatório).
+' Objetivo: recuperar a arquitetura mínima do fluxo de cadastro de colaborador,
+' não representar todo o OrangeHRM.
+
+title Módulo PIM - Classes do estado atual (cadastro de colaborador)
+
+class AbstractVueController <<framework>> {
+  + setComponent()
+}
+
+class SaveEmployeeController <<controller>> {
+  + getIdGeneratorService()
+  + preRender(request)
+}
+
+class Component <<view>> {
+  - name
+  - type
+  - value
+  + addProp(prop)
+}
+
+class IDGeneratorService <<service>> {
+  + getNextID()
+  + incrementID()
+}
+
+class EmployeeService <<service>> {
+  - employeeDao
+  - dispatcher
+  + saveEmployee(employee)
+  + getEmployeeById(id)
+}
+
+class EmployeeDao <<dao>> {
+  + getEmployeeListByParams()
+  + saveEmployee(employee)
+  + deleteEmployees(ids)
+}
+
+class QueryBuilderWrapper <<orm>> {
+  + getQueryBuilder()
+}
+
+class Employee <<entity>> {
+  - empNumber
+  - empId
+  - firstName
+  - lastName
+  - workEmail
+  - eventDate
+  + getters/setters
+}
+
+database "Banco de Dados\n(tabelas de domínio PIM)" as DB
+
+SaveEmployeeController --|> AbstractVueController : herda
+SaveEmployeeController --> Component : monta props
+SaveEmployeeController --> IDGeneratorService : consulta
+SaveEmployeeController --> EmployeeService : usa
+EmployeeService --> EmployeeDao : consulta/persiste
+EmployeeService --> Employee : manipula
+EmployeeDao --> QueryBuilderWrapper : consulta
+QueryBuilderWrapper --> DB : SQL/ORM
+EmployeeDao ..> Employee : retorna
+
+note bottom of Employee
+  Classe central do domínio. Agrega salário, contrato,
+  dependentes, contatos, documentos e qualificações.
+  Code smell: Large Class / God Class.
+end note
+
+note bottom of EmployeeDao
+  Concentra filtros, joins, paginação e critérios de busca.
+  Code smell: Long Method / Complex Query.
+end note
+
+@enduml
