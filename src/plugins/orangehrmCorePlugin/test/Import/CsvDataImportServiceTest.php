@@ -180,4 +180,26 @@ class CsvDataImportServiceTest extends TestCase
 
         $this->csvDataImportService->getEmployeeArrayFromCSV($fileContent, $this->headerValues);
     }
+
+    public function testGetEmployeeArrayFromCSVWithEmptyContentReturnsEmptyArray(): void
+    {
+        $result = $this->csvDataImportService->getEmployeeArrayFromCSV("", $this->headerValues);
+        $this->assertSame([], $result);
+    }
+
+    public function testGetEmployeeArrayFromCSVDoesNotTruncateLongCells(): void
+    {
+        // A single cell longer than 1000 bytes used to be truncated by fgetcsv's length limit,
+        // which split the row and triggered a spurious column-count mismatch.
+        $longValue = str_repeat('a', 2000);
+        $dataRow = $longValue . str_repeat(',', count($this->headerValues) - 1);
+        $fileContent = implode(',', $this->headerValues) . "\n" . $dataRow;
+
+        $result = $this->csvDataImportService->getEmployeeArrayFromCSV($fileContent, $this->headerValues);
+
+        $this->assertCount(2, $result);
+        $this->assertSame($this->headerValues, $result[0]);
+        $this->assertSame($longValue, $result[1][0]);
+        $this->assertCount(count($this->headerValues), $result[1]);
+    }
 }

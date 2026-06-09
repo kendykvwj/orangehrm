@@ -113,6 +113,9 @@ jobs:
       - name: Executar testsuite Pim
         run: ./src/vendor/bin/phpunit --testsuite Pim -d memory_limit=1G
 
+      - name: Executar testes de importação CSV (grupo Import)
+        run: ./src/vendor/bin/phpunit --testsuite Core --group Import -d memory_limit=1G
+
   # ---------------------------------------------------------------------------
   # Gate 3 - Build da imagem Docker
   # ---------------------------------------------------------------------------
