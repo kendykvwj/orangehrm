@@ -2,10 +2,13 @@
 # Alinhado ao trabalho UNICESUMAR: foco no módulo PIM (orangehrmPimPlugin),
 # governança GitFlow e bloqueios automatizados (quality gates) no pipeline.
 #
-# Estágios (cada um bloqueia o seguinte):
+# Estágios:
 #   1. lint           -> padrão de código PHP (PHP-CS-Fixer) e cliente Vue/TS do PIM
-#   2. pim-tests      -> PHPUnit restrito à testsuite "Pim"
-#   3. docker-build   -> valida que a imagem da aplicação ainda constrói
+#   2. pim-tests      -> PHPUnit (testsuite "Pim" + grupo "Import"); bloqueado por lint
+#   3. docker-build   -> valida que a imagem ainda constrói (roda em paralelo)
+#   4. pipeline-status-> bloqueio único: exige todos os gates verdes
+# Caching: composer (ramsey/composer-install), yarn (setup-node) e camadas
+# Docker (buildx + cache gha) para reduzir o tempo de execução.
 #
 # GitFlow: roda em main (estável), develop (integração) e feature/** (trabalho em curso).
 name: PIM Pipeline
@@ -48,11 +51,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: yarn
+          cache-dependency-path: src/client/yarn.lock
 
-      - name: Instalar dependências PHP
-        run: |
-          composer install -d src
-          composer install -d devTools/core
+      - name: Instalar dependências PHP (app)
+        uses: ramsey/composer-install@v3
+        with:
+          working-directory: src
+
+      - name: Instalar dependências PHP (devTools)
+        uses: ramsey/composer-install@v3
+        with:
+          working-directory: devTools/core
 
       - name: Verificar padrão de código PHP
         run: php devTools/core/console.php php-cs-fix --php php
@@ -100,10 +110,15 @@ jobs:
           extensions: pdo, pdo_mysql, curl, json, mbstring, zip, dom, xml, simplexml, gd, ldap, openssl, intl
           tools: composer:v2
 
-      - name: Instalar dependências PHP
-        run: |
-          composer install -d src
-          composer install -d devTools/core
+      - name: Instalar dependências PHP (app)
+        uses: ramsey/composer-install@v3
+        with:
+          working-directory: src
+
+      - name: Instalar dependências PHP (devTools)
+        uses: ramsey/composer-install@v3
+        with:
+          working-directory: devTools/core
 
       - name: Instalar OrangeHRM e banco de testes
         run: |
@@ -122,12 +137,23 @@ jobs:
   docker-build:
     name: Gate 3 - Build Docker
     runs-on: ubuntu-latest
-    needs: pim-tests
+    # Independente dos testes: roda em paralelo com lint/pim-tests. O bloqueio
+    # final fica no job pipeline-status, que exige todos os gates verdes.
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Construir imagem da aplicação
-        run: docker build -t orangehrm-pim:ci .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: false
+          tags: orangehrm-pim:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------------------
   # Resultado consolidado do pipeline (bloqueio único para branch protection)
