@@ -10,20 +10,20 @@
 # Caching: composer (ramsey/composer-install), yarn (setup-node) e camadas
 # Docker (buildx + cache gha) para reduzir o tempo de execução.
 #
-# GitFlow: roda em main (estável), develop (integração) e feature/** (trabalho em curso).
+# GitFlow: roda em main (estável), development (integração) e feature/** (trabalho em curso).
 name: PIM Pipeline
 
 on:
   push:
     branches:
       - main
-      - develop
+      - development
       - 'feature/**'
       - 'hotfix/**'
   pull_request:
     branches:
       - main
-      - develop
+      - development
 
 # Cancela execuções antigas da mesma branch/PR para economizar recurso.
 concurrency:
