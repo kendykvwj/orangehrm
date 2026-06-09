@@ -1,0 +1,41 @@
+@startuml pim-sequence-add-employee
+' Diagrama de sequência do cadastro de colaborador no módulo PIM.
+' Fonte: engenharia reversa do checkpoint 02 (Figura 2 do relatório).
+' Fluxo simplificado para evidenciar a comunicação entre usuário,
+' interface, controller, service, DAO, ORM e banco.
+
+title Cadastro de colaborador - fluxo recuperado (módulo PIM)
+
+actor Usuário as U
+participant "Interface Vue" as UI
+participant "SaveEmployeeController" as C
+participant "EmployeeService" as S
+participant "EmployeeDao" as D
+participant "ORM / QueryBuilder" as O
+database "Banco de Dados" as DB
+
+== Preparação da tela ==
+U -> UI : abre tela de cadastro
+UI -> C : GET (preRender)
+C -> C : define props iniciais\n(id sugerido, regras)
+C --> UI : props do componente
+
+== Envio dos dados ==
+U -> UI : preenche e envia colaborador
+UI -> S : enviar dados (camada de aplicação)
+S -> S : valida regras
+S -> D : salvar Employee
+D -> O : montar query / persistir
+O -> DB : INSERT / SELECT
+DB --> O : confirmação
+O --> D : resultado
+D --> S : entidade salva
+S --> UI : resposta da operação
+UI --> U : feedback de sucesso/erro
+
+note over S, D
+  Futuras alterações no cadastro devem considerar o contrato
+  da interface, as regras de serviço e a persistência.
+end note
+
+@enduml
