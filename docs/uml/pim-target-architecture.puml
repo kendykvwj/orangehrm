@@ -1,0 +1,77 @@
+@startuml pim-target-architecture
+' Arquitetura alvo proposta para o módulo PIM (reengenharia).
+' Fonte: checkpoint 03 - plano de reengenharia (Figura 3 do relatório).
+' Mantém a separação em camadas, mas introduz contratos e objetos
+' especializados para reduzir acoplamento e elevar testabilidade.
+
+title Módulo PIM - Arquitetura alvo proposta
+
+class EmployeeController <<controller>> {
+  Entrada, sessão e resposta HTTP
+}
+
+class PimEmployeeFacade <<facade>> {
+  + registerEmployee(req)
+  + searchEmployees(filter)
+}
+
+class EmployeeApplicationService <<application service>> {
+  + execute(request)
+}
+
+class EmployeeRegistrationRequest <<DTO / Parameter Object>> {
+  dados normalizados do cadastro
+}
+
+class EmployeeBuilder <<builder>> {
+  + fromRequest(req)
+  + build()
+}
+
+interface EmployeeValidator <<strategy>> {
+  + validate(request)
+}
+class DocumentValidator
+class PhotoPolicyValidator
+
+interface EmployeeRepository <<repository interface>> {
+  + save(employee)
+  + findById(id)
+  + search(specification)
+}
+class EmployeeDaoAdapter <<adapter>> {
+  adapta EmployeeDao ao contrato Repository
+}
+
+class EmployeeSearchSpecification <<specification / query object>> {
+  filtros de busca avançada
+}
+
+class DomainEventDispatcher <<observer>> {
+  notifica eventos do cadastro
+}
+class AuditLogObserver {
+  registra criação/alteração/exclusão
+}
+
+EmployeeController --> PimEmployeeFacade : aciona
+PimEmployeeFacade --> EmployeeApplicationService : orquestra
+EmployeeApplicationService --> EmployeeRegistrationRequest : recebe
+EmployeeApplicationService --> EmployeeBuilder : cria entidade
+EmployeeApplicationService --> EmployeeValidator : valida (estratégia)
+EmployeeValidator <|.. DocumentValidator
+EmployeeValidator <|.. PhotoPolicyValidator
+EmployeeApplicationService --> EmployeeRepository : persiste
+EmployeeRepository <|.. EmployeeDaoAdapter : implementa
+EmployeeApplicationService --> EmployeeSearchSpecification : usa
+EmployeeApplicationService --> DomainEventDispatcher : publica eventos
+DomainEventDispatcher --> AuditLogObserver : notifica
+
+note bottom
+  Facade = entrada de alto nível; Strategy = troca de regras de validação;
+  Builder = criação consistente da entidade; Adapter = aproveitar o DAO atual
+  sem expor detalhes; Repository = contrato de persistência;
+  Specification/Query Object = isolar filtros; Observer = auditoria desacoplada.
+end note
+
+@enduml
