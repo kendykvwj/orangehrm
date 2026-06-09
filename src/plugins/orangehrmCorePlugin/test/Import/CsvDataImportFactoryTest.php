@@ -19,6 +19,7 @@
 
 namespace OrangeHRM\Tests\Core\Import;
 
+use InvalidArgumentException;
 use OrangeHRM\Core\Import\CsvDataImportFactory;
 use OrangeHRM\Core\Import\PimCsvDataImport;
 use OrangeHRM\Tests\Util\TestCase;
@@ -42,5 +43,11 @@ class CsvDataImportFactoryTest extends TestCase
     public function testGetImportClassInstance(): void
     {
         $this->assertTrue($this->csvDataImportFactory->getImportClassInstance('pim') instanceof PimCsvDataImport);
+    }
+
+    public function testGetImportClassInstanceWithUnsupportedTypeThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->csvDataImportFactory->getImportClassInstance('unknown');
     }
 }

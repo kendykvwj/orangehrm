@@ -19,16 +19,24 @@
 
 namespace OrangeHRM\Core\Import;
 
+use InvalidArgumentException;
+
 class CsvDataImportFactory
 {
+    public const IMPORT_TYPE_PIM = 'pim';
+
     /**
      * @param string $importType
-     * @return PimCsvDataImport|void
+     * @return CsvDataImport
+     * @throws InvalidArgumentException when the import type is not supported
      */
-    public function getImportClassInstance(string $importType): PimCsvDataImport
+    public function getImportClassInstance(string $importType): CsvDataImport
     {
-        if ($importType == 'pim') {
-            return new PimCsvDataImport();
+        switch ($importType) {
+            case self::IMPORT_TYPE_PIM:
+                return new PimCsvDataImport();
+            default:
+                throw new InvalidArgumentException(sprintf('Unsupported import type "%s".', $importType));
         }
     }
 }
